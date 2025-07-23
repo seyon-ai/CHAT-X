@@ -1,0 +1,1351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PMO Recovery Tracker</title>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <style>
+        :root {
+            --bg-dark: #121212;
+            --bg-darker: #0a0a0a;
+            --bg-card: #1e1e1e;
+            --primary: #bb86fc;
+            --primary-dark: #3700b3;
+            --secondary: #03dac6;
+            --text-primary: #e1e1e1;
+            --text-secondary: #a0a0a0;
+            --danger: #cf6679;
+            --warning: #ffb74d;
+            --success: #4caf50;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+            border-bottom: 1px solid var(--bg-card);
+            margin-bottom: 30px;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        nav {
+            display: flex;
+            gap: 20px;
+        }
+
+        nav a {
+            color: var(--text-primary);
+            text-decoration: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+
+        nav a:hover {
+            background-color: var(--bg-card);
+        }
+
+        nav a.active {
+            background-color: var(--primary-dark);
+            color: white;
+        }
+
+        .card {
+            background-color: var(--bg-card);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-title {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: var(--primary);
+        }
+
+        .btn {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: var(--bg-dark);
+        }
+
+        .btn-primary:hover {
+            background-color: #9e47ff;
+        }
+
+        .btn-danger {
+            background-color: var(--danger);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background-color: #b74d5f;
+        }
+
+        .btn-success {
+            background-color: var(--success);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background-color: #3d8b40;
+        }
+
+        .progress-container {
+            width: 100%;
+            background-color: var(--bg-darker);
+            border-radius: 8px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 20px;
+            background-color: var(--primary);
+            border-radius: 8px;
+            transition: width 0.5s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: var(--bg-dark);
+            font-weight: bold;
+        }
+
+        .timeline {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .day {
+            height: 80px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: var(--bg-darker);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .day:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .day-number {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .day-status {
+            font-size: 12px;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+
+        .day-clean {
+            background-color: var(--success);
+            color: white;
+        }
+
+        .day-fail {
+            background-color: var(--danger);
+            color: white;
+        }
+
+        .day-risk {
+            background-color: var(--warning);
+            color: var(--bg-dark);
+        }
+
+        .day-unknown {
+            background-color: var(--bg-card);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background-color: var(--bg-card);
+            padding: 30px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-title {
+            font-size: 20px;
+            margin-bottom: 20px;
+            color: var(--primary);
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text-secondary);
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 10px;
+            background-color: var(--bg-dark);
+            border: 1px solid var(--bg-darker);
+            border-radius: 4px;
+            color: var(--text-primary);
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .emergency-section {
+            background-color: rgba(207, 102, 121, 0.1);
+            border-left: 4px solid var(--danger);
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 0 4px 4px 0;
+        }
+
+        .emergency-title {
+            color: var(--danger);
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .stat-card {
+            background-color: var(--bg-darker);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            margin: 10px 0;
+            color: var(--primary);
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .motivation-message {
+            font-style: italic;
+            margin: 20px 0;
+            padding: 15px;
+            background-color: rgba(187, 134, 252, 0.1);
+            border-left: 4px solid var(--primary);
+            border-radius: 0 4px 4px 0;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-right: 5px;
+        }
+
+        .badge-success {
+            background-color: var(--success);
+            color: white;
+        }
+
+        .badge-warning {
+            background-color: var(--warning);
+            color: var(--bg-dark);
+        }
+
+        .badge-danger {
+            background-color: var(--danger);
+            color: white;
+        }
+
+        .tab-container {
+            margin: 20px 0;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--bg-darker);
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .tab.active {
+            border-bottom: 3px solid var(--primary);
+            color: var(--primary);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            .timeline {
+                grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+            }
+            
+            .day {
+                height: 60px;
+            }
+            
+            .day-number {
+                font-size: 16px;
+            }
+            
+            .day-status {
+                font-size: 10px;
+            }
+            
+            nav {
+                gap: 10px;
+            }
+            
+            .stats-container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">PMO Recovery Tracker</div>
+            <nav>
+                <a href="#" class="active" data-tab="dashboard">Dashboard</a>
+                <a href="#" data-tab="timeline">Timeline</a>
+                <a href="#" data-tab="emergency">Emergency</a>
+                <a href="#" data-tab="stats">Statistics</a>
+            </nav>
+        </header>
+
+        <div class="tab-container">
+            <div class="tabs">
+                <div class="tab active" data-tab="dashboard">Dashboard</div>
+                <div class="tab" data-tab="timeline">90-Day Timeline</div>
+                <div class="tab" data-tab="emergency">Emergency</div>
+                <div class="tab" data-tab="stats">Statistics</div>
+            </div>
+
+            <div class="tab-content active" id="dashboard">
+                <div class="card">
+                    <h2 class="card-title">Today's Check-in</h2>
+                    <div id="daily-message"></div>
+                    <div class="form-group">
+                        <label for="today-status">How was your day today?</label>
+                        <select id="today-status" class="form-control">
+                            <option value="clean">Clean - No PMO</option>
+                            <option value="risk">At Risk - Had urges but resisted</option>
+                            <option value="fail">Failed - PMO occurred</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="pmo-count-container" style="display: none;">
+                        <label for="pmo-count">How many times did PMO occur?</label>
+                        <input type="number" id="pmo-count" class="form-control" min="1" value="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="today-notes">Notes (optional)</label>
+                        <textarea id="today-notes" class="form-control" rows="3"></textarea>
+                    </div>
+                    <button id="submit-day" class="btn btn-primary">Submit</button>
+                </div>
+
+                <div class="card">
+                    <h2 class="card-title">Your Progress</h2>
+                    <div id="current-streak">Current Streak: <span id="streak-days">0</span> days</div>
+                    <div class="progress-container">
+                        <div class="progress-bar" id="progress-bar" style="width: 0%">0%</div>
+                    </div>
+                    <div id="risk-protobillo">
+                        <h3>Risk Assessment</h3>
+                        <div id="risk-level"></div>
+                        <div id="risk-message"></div>
+                    </div>
+                </div>
+
+                <div class="motivation-message" id="motivation-message">
+                    Loading your daily motivation...
+                </div>
+            </div>
+
+            <div class="tab-content" id="timeline">
+                <div class="card">
+                    <h2 class="card-title">90-Day Recovery Timeline</h2>
+                    <p>Track your progress day by day. Click on a day to view or edit details.</p>
+                    <div class="timeline" id="timeline-days"></div>
+                </div>
+            </div>
+
+            <div class="tab-content" id="emergency">
+                <div class="card">
+                    <h2 class="card-title">Emergency Toolkit</h2>
+                    <div class="emergency-section">
+                        <h3 class="emergency-title">Urge Surfing</h3>
+                        <p>Urges are like waves - they build, peak, and then subside. Try these techniques:</p>
+                        <ul>
+                            <li>Delay for 15 minutes - set a timer and do something else</li>
+                            <li>Practice deep breathing (4-7-8 technique)</li>
+                            <li>Get up and move - do 20 jumping jacks or pushups</li>
+                            <li>Call a supportive friend</li>
+                        </ul>
+                        <button id="emergency-distract" class="btn btn-primary">Show Distraction Ideas</button>
+                    </div>
+
+                    <div class="emergency-section">
+                        <h3 class="emergency-title">Reset After a Slip</h3>
+                        <p>If you've slipped, don't binge - follow these steps:</p>
+                        <ol>
+                            <li>Acknowledge what happened without judgment</li>
+                            <li>Clean up your environment (close tabs, etc.)</li>
+                            <li>Drink water and wash your face</li>
+                            <li>Journal about what triggered you</li>
+                            <li>Recommit to your recovery immediately</li>
+                        </ol>
+                        <button id="reset-journal" class="btn btn-primary">Start Reset Journal</button>
+                    </div>
+
+                    <div class="emergency-section">
+                        <h3 class="emergency-title">Accountability</h3>
+                        <p>Reach out for support:</p>
+                        <button id="call-accountability" class="btn btn-primary">Generate Accountability Message</button>
+                        <div id="accountability-message" style="margin-top: 15px; display: none;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-content" id="stats">
+                <div class="card">
+                    <h2 class="card-title">Your Recovery Statistics</h2>
+                    <div class="stats-container">
+                        <div class="stat-card">
+                            <div class="stat-label">Current Streak</div>
+                            <div class="stat-value" id="stat-streak">0</div>
+                            <div class="stat-label">days</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Longest Streak</div>
+                            <div class="stat-value" id="stat-longest-streak">0</div>
+                            <div class="stat-label">days</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Clean Days</div>
+                            <div class="stat-value" id="stat-clean-days">0</div>
+                            <div class="stat-label">of last 90</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Success Rate</div>
+                            <div class="stat-value" id="stat-success-rate">0%</div>
+                            <div class="stat-label">last 30 days</div>
+                        </div>
+                    </div>
+
+                    <h3 style="margin-top: 30px;">Pattern Analysis</h3>
+                    <div id="pattern-analysis">
+                        <p>Your most common triggers appear to be:</p>
+                        <ul id="trigger-list">
+                            <li>Loading analysis...</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="day-modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2 class="modal-title">Day <span id="modal-day-number">1</span> Details</h2>
+            <div id="modal-day-content">
+                <p>Loading day details...</p>
+            </div>
+            <div class="form-group">
+                <label for="edit-day-status">Update Status</label>
+                <select id="edit-day-status" class="form-control">
+                    <option value="clean">Clean - No PMO</option>
+                    <option value="risk">At Risk - Had urges but resisted</option>
+                    <option value="fail">Failed - PMO occurred</option>
+                </select>
+            </div>
+            <div class="form-group" id="edit-pmo-count-container" style="display: none;">
+                <label for="edit-pmo-count">How many times did PMO occur?</label>
+                <input type="number" id="edit-pmo-count" class="form-control" min="1" value="1">
+            </div>
+            <div class="form-group">
+                <label for="edit-day-notes">Notes</label>
+                <textarea id="edit-day-notes" class="form-control" rows="3"></textarea>
+            </div>
+            <button id="save-day" class="btn btn-primary">Save Changes</button>
+            <button id="delete-day" class="btn btn-danger">Delete Entry</button>
+        </div>
+    </div>
+
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAh2z4hnNSQNN9I9MAsUlTV3jvGf1nsI8I",
+            authDomain: "no-pmo-2c6dd.firebaseapp.com",
+            databaseURL: "https://no-pmo-2c6dd-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "no-pmo-2c6dd",
+            storageBucket: "no-pmo-2c6dd.firebasestorage.app",
+            messagingSenderId: "211518471327",
+            appId: "1:211518471327:web:14fa6f4fc54777b8dff6aa"
+        };
+
+        // Initialize Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const auth = firebase.auth();
+
+        // App state
+        let currentUser = null;
+        let userData = null;
+        let currentDay = 0;
+        let currentTab = 'dashboard';
+
+        // DOM elements
+        const todayStatus = document.getElementById('today-status');
+        const pmoCountContainer = document.getElementById('pmo-count-container');
+        const pmoCount = document.getElementById('pmo-count');
+        const todayNotes = document.getElementById('today-notes');
+        const submitDayBtn = document.getElementById('submit-day');
+        const streakDays = document.getElementById('streak-days');
+        const progressBar = document.getElementById('progress-bar');
+        const riskLevel = document.getElementById('risk-level');
+        const riskMessage = document.getElementById('risk-message');
+        const timelineDays = document.getElementById('timeline-days');
+        const dailyMessage = document.getElementById('daily-message');
+        const motivationMessage = document.getElementById('motivation-message');
+        const dayModal = document.getElementById('day-modal');
+        const closeModal = document.querySelector('.close-modal');
+        const modalDayNumber = document.getElementById('modal-day-number');
+        const modalDayContent = document.getElementById('modal-day-content');
+        const editDayStatus = document.getElementById('edit-day-status');
+        const editPmoCountContainer = document.getElementById('edit-pmo-count-container');
+        const editPmoCount = document.getElementById('edit-pmo-count');
+        const editDayNotes = document.getElementById('edit-day-notes');
+        const saveDayBtn = document.getElementById('save-day');
+        const deleteDayBtn = document.getElementById('delete-day');
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+        const navLinks = document.querySelectorAll('nav a');
+        const statStreak = document.getElementById('stat-streak');
+        const statLongestStreak = document.getElementById('stat-longest-streak');
+        const statCleanDays = document.getElementById('stat-clean-days');
+        const statSuccessRate = document.getElementById('stat-success-rate');
+        const triggerList = document.getElementById('trigger-list');
+
+        // Motivational messages for each day
+        const dailyMessages = [
+            "Day 1: The journey of a thousand miles begins with a single step. You've taken that first step - be proud!",
+            "Day 2: The early days are the toughest, but each hour you resist makes you stronger.",
+            "Day 3: Your brain is beginning to rewire itself. Stay strong through this challenging phase.",
+            "Day 4: Notice any changes in your energy or mood? Recovery brings many subtle benefits.",
+            "Day 5: You're building discipline that will serve you in all areas of life. Keep going!",
+            "Day 6: Halfway through the first week! Celebrate small victories - they lead to big changes.",
+            "Day 7: One week complete! Your willpower muscle is getting stronger with each day.",
+            "Day 8: You're developing new neural pathways that support your healthier choices.",
+            "Day 9: The urges may feel strong, but remember they're temporary. Surf the wave.",
+            "Day 10: Double digits! You're proving to yourself that change is possible.",
+            "Day 11: Each day you resist, you're reclaiming your time, energy, and focus.",
+            "Day 12: Notice how your mind is clearer? That's your brain healing.",
+            "Day 13: You're building resilience that extends far beyond this challenge.",
+            "Day 14: Two weeks! Your body and mind are adjusting to this new normal.",
+            "Day 15: Halfway through the first month! Reflect on how far you've come.",
+            "Day 16: Each day is a brick in the foundation of your new life. Keep laying them.",
+            "Day 17: The benefits you're experiencing now are just the beginning.",
+            "Day 18: You're developing mastery over your impulses - a priceless skill.",
+            "Day 19: Your future self will thank you for every day you stay strong.",
+            "Day 20: Two-thirds through the first month! You're doing what many think is impossible.",
+            "Day 21: Three weeks! Studies show this is when new habits start to form.",
+            "Day 22: You're not just avoiding PMO - you're building a better version of yourself.",
+            "Day 23: Each day adds to your confidence and self-respect.",
+            "Day 24: Notice how you're handling stress differently? That's growth.",
+            "Day 25: You're proving that you're stronger than your urges.",
+            "Day 26: The discipline you're building will serve you in all areas of life.",
+            "Day 27: Almost a full month! Your brain chemistry is normalizing.",
+            "Day 28: Four weeks! Celebrate this milestone and keep moving forward.",
+            "Day 29: You're developing the mental muscles of focus and self-control.",
+            "Day 30: One month! This is a huge achievement. Take time to reflect on your progress.",
+            "Day 31: You're in new territory now - beyond what many ever achieve.",
+            "Day 32: Each day is a testament to your commitment to change.",
+            "Day 33: You're creating space in your life for more meaningful pursuits.",
+            "Day 34: Notice how your triggers have less power over you? That's progress.",
+            "Day 35: Five weeks! You're rewriting your story one day at a time.",
+            "Day 36: Your perseverance is inspiring - even if no one else sees it.",
+            "Day 37: The benefits compound with each day - keep going!",
+            "Day 38: You're developing the discipline of a champion.",
+            "Day 39: Each day you resist, you strengthen your future resolve.",
+            "Day 40: Over a month! You're proving that lasting change is possible.",
+            "Day 41: Your brain is continuing to heal and rebalance.",
+            "Day 42: Six weeks! The halfway point is in sight - stay focused.",
+            "Day 43: You're accumulating days of freedom and self-mastery.",
+            "Day 44: Each day adds to your confidence and inner strength.",
+            "Day 45: Notice how your mindset has shifted? That's real change.",
+            "Day 46: You're building habits that will serve you for a lifetime.",
+            "Day 47: The discipline you're developing is more valuable than gold.",
+            "Day 48: You're creating a new normal - one based on self-respect.",
+            "Day 49: Seven weeks! You're in the home stretch now.",
+            "Day 50: Fifty days! You're part of an elite group who've made it this far.",
+            "Day 51: Your future self is already benefiting from today's discipline.",
+            "Day 52: Each day is another victory over your old patterns.",
+            "Day 53: You're demonstrating incredible commitment to your growth.",
+            "Day 54: Notice how your energy and focus have improved?",
+            "Day 55: You're not just resisting PMO - you're reclaiming your life.",
+            "Day 56: Eight weeks! The benefits continue to multiply.",
+            "Day 57: Your brain has undergone significant healing by now.",
+            "Day 58: Each day adds to your reservoir of willpower.",
+            "Day 59: You're developing the focus of a laser beam.",
+            "Day 60: Two months! This is an extraordinary achievement.",
+            "Day 61: You're in the top percentage of people who commit to change.",
+            "Day 62: Your discipline today is creating freedom tomorrow.",
+            "Day 63: Nine weeks! The finish line is getting closer.",
+            "Day 64: Notice how your triggers have less power over you?",
+            "Day 65: You're building mental toughness that few possess.",
+            "Day 66: Each day is another step toward permanent freedom.",
+            "Day 67: Your perseverance is reshaping your brain and your life.",
+            "Day 68: You're demonstrating what's possible with commitment.",
+            "Day 69: Notice how your self-image has changed? That's powerful.",
+            "Day 70: Ten weeks! You're in the final stretch now.",
+            "Day 71: Your future self will look back on this time with gratitude.",
+            "Day 72: Each day adds to your legacy of self-mastery.",
+            "Day 73: You're proving that transformation is possible.",
+            "Day 74: The habits you're building now will last a lifetime.",
+            "Day 75: Seventy-five days! You're almost there.",
+            "Day 76: Notice how your mindset has completely shifted?",
+            "Day 77: Eleven weeks! You're an inspiration to others.",
+            "Day 78: Your discipline is creating space for joy and fulfillment.",
+            "Day 79: Each day is another brick in your fortress of willpower.",
+            "Day 80: You're in the home stretch - stay focused!",
+            "Day 81: Your brain has largely healed and rebalanced by now.",
+            "Day 82: Notice how your energy and focus are at new levels?",
+            "Day 83: Twelve weeks! The finish line is just days away.",
+            "Day 84: You're demonstrating extraordinary commitment.",
+            "Day 85: Each day is a victory over your former limitations.",
+            "Day 86: You're creating a new standard for yourself.",
+            "Day 87: Notice how your life has improved in many ways?",
+            "Day 88: Your perseverance is about to pay off in a big way.",
+            "Day 89: Almost there! One final push to the finish line.",
+            "Day 90: Congratulations! You've completed the 90-day challenge. This is just the beginning of your new life."
+        ];
+
+        // Emergency distraction ideas
+        const distractionIdeas = [
+            "Go for a brisk 10-minute walk outside",
+            "Do 50 pushups or jumping jacks",
+            "Take a cold shower for 2 minutes",
+            "Call or text a supportive friend",
+            "Work on a hobby or creative project",
+            "Clean or organize your space",
+            "Read an inspiring book or article",
+            "Practice meditation for 10 minutes",
+            "Write in a journal about your feelings",
+            "Learn something new online",
+            "Cook a healthy meal",
+            "Do a puzzle or brain teaser",
+            "Listen to uplifting music",
+            "Plan your goals for the next week",
+            "Volunteer to help someone else"
+        ];
+
+        // Initialize the app
+        function initApp() {
+            // Sign in anonymously
+            auth.signInAnonymously()
+                .then(() => {
+                    auth.onAuthStateChanged((user) => {
+                        if (user) {
+                            currentUser = user;
+                            loadUserData();
+                        } else {
+                            console.log("User signed out");
+                        }
+                    });
+                })
+                .catch((error) => {
+                    console.error("Authentication error:", error);
+                });
+
+            // Set up event listeners
+            todayStatus.addEventListener('change', function() {
+                if (this.value === 'fail') {
+                    pmoCountContainer.style.display = 'block';
+                } else {
+                    pmoCountContainer.style.display = 'none';
+                }
+            });
+
+            submitDayBtn.addEventListener('click', submitDay);
+            closeModal.addEventListener('click', () => dayModal.style.display = 'none');
+            saveDayBtn.addEventListener('click', saveDay);
+            deleteDayBtn.addEventListener('click', deleteDay);
+
+            // Tab navigation
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    currentTab = tab.dataset.tab;
+                    
+                    tabContents.forEach(content => {
+                        content.classList.remove('active');
+                        if (content.id === currentTab) {
+                            content.classList.add('active');
+                        }
+                    });
+                    
+                    // Update URL hash
+                    window.location.hash = currentTab;
+                    
+                    // If timeline tab is selected, ensure it's rendered
+                    if (currentTab === 'timeline' && userData) {
+                        renderTimeline();
+                    }
+                });
+            });
+
+            // Nav link navigation
+            navLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const tab = link.dataset.tab;
+                    
+                    // Find the corresponding tab and click it
+                    const tabElement = document.querySelector(`.tab[data-tab="${tab}"]`);
+                    if (tabElement) {
+                        tabElement.click();
+                    }
+                    
+                    // Update active nav link
+                    navLinks.forEach(l => l.classList.remove('active'));
+                    link.classList.add('active');
+                });
+            });
+
+            // Emergency buttons
+            document.getElementById('emergency-distract').addEventListener('click', showDistractionIdeas);
+            document.getElementById('reset-journal').addEventListener('click', startResetJournal);
+            document.getElementById('call-accountability').addEventListener('click', generateAccountabilityMessage);
+
+            // Check URL hash for initial tab
+            if (window.location.hash) {
+                const hash = window.location.hash.substring(1);
+                const tabElement = document.querySelector(`.tab[data-tab="${hash}"]`);
+                if (tabElement) {
+                    tabElement.click();
+                    
+                    // Also update the nav link
+                    navLinks.forEach(l => l.classList.remove('active'));
+                    const navLink = document.querySelector(`nav a[data-tab="${hash}"]`);
+                    if (navLink) {
+                        navLink.classList.add('active');
+                    }
+                }
+            }
+        }
+
+        // Load user data from Firebase
+        function loadUserData() {
+            const userRef = database.ref('users/' + currentUser.uid);
+            
+            userRef.on('value', (snapshot) => {
+                userData = snapshot.val();
+                
+                if (!userData) {
+                    // Initialize new user
+                    userData = {
+                        createdAt: firebase.database.ServerValue.TIMESTAMP,
+                        days: {},
+                        stats: {
+                            longestStreak: 0,
+                            cleanDays: 0,
+                            totalDays: 0
+                        }
+                    };
+                    userRef.set(userData);
+                }
+                
+                // Calculate current day
+                const startDate = userData.createdAt ? new Date(userData.createdAt) : new Date();
+                const today = new Date();
+                const diffTime = Math.abs(today - startDate);
+                currentDay = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+                
+                // Ensure we don't go beyond 90 days
+                currentDay = Math.min(currentDay, 90);
+                
+                // Update UI
+                updateDashboard();
+                renderTimeline();
+                updateStatistics();
+                
+                // Show daily message
+                showDailyMessage();
+            });
+        }
+
+        // Update dashboard with current data
+        function updateDashboard() {
+            if (!userData || !userData.days) return;
+            
+            // Calculate current streak
+            let streak = 0;
+            let hasFailed = false;
+            
+            for (let day = currentDay - 1; day >= 1; day--) {
+                const dayData = userData.days[day];
+                
+                if (!dayData || dayData.status === 'fail') {
+                    hasFailed = true;
+                    break;
+                }
+                
+                if (dayData.status === 'clean' || dayData.status === 'risk') {
+                    streak++;
+                } else {
+                    break;
+                }
+            }
+            
+            // Update streak display
+            streakDays.textContent = streak;
+            
+            // Update progress bar
+            const progressPercent = Math.floor((currentDay - 1) / 90 * 100);
+            progressBar.style.width = `${progressPercent}%`;
+            progressBar.textContent = `${progressPercent}%`;
+            
+            // Update risk assessment
+            updateRiskAssessment(streak);
+        }
+
+        // Update risk assessment
+        function updateRiskAssessment(streak) {
+            let risk = "Low";
+            let message = "You're doing great! Keep up the good work.";
+            let riskClass = "badge-success";
+            
+            if (streak < 3) {
+                risk = "High";
+                message = "Early days are challenging. Stay vigilant and use your emergency tools if needed.";
+                riskClass = "badge-danger";
+            } else if (streak < 7) {
+                risk = "Medium";
+                message = "You're building momentum. Watch out for overconfidence and unexpected triggers.";
+                riskClass = "badge-warning";
+            } else if (streak < 30) {
+                risk = "Moderate";
+                message = "You're making progress, but don't let your guard down. Stay committed to your daily check-ins.";
+                riskClass = "badge-warning";
+            }
+            
+            riskLevel.innerHTML = `Current Risk Level: <span class="${riskClass}">${risk}</span>`;
+            riskMessage.textContent = message;
+        }
+
+        // Render the 90-day timeline
+        function renderTimeline() {
+            if (!userData || !userData.days) return;
+            
+            timelineDays.innerHTML = '';
+            
+            for (let day = 1; day <= 90; day++) {
+                const dayElement = document.createElement('div');
+                dayElement.className = 'day day-unknown';
+                dayElement.dataset.day = day;
+                
+                const dayNumber = document.createElement('div');
+                dayNumber.className = 'day-number';
+                dayNumber.textContent = day;
+                
+                const dayStatus = document.createElement('div');
+                dayStatus.className = 'day-status';
+                
+                const dayData = userData.days[day];
+                
+                if (dayData) {
+                    if (dayData.status === 'clean') {
+                        dayElement.classList.add('day-clean');
+                        dayStatus.textContent = 'Clean';
+                    } else if (dayData.status === 'risk') {
+                        dayElement.classList.add('day-risk');
+                        dayStatus.textContent = 'Risk';
+                    } else if (dayData.status === 'fail') {
+                        dayElement.classList.add('day-fail');
+                        dayStatus.textContent = 'Fail';
+                    }
+                } else if (day < currentDay) {
+                    dayStatus.textContent = 'Missing';
+                } else if (day === currentDay) {
+                    dayStatus.textContent = 'Today';
+                } else {
+                    dayStatus.textContent = 'Future';
+                }
+                
+                dayElement.appendChild(dayNumber);
+                dayElement.appendChild(dayStatus);
+                dayElement.addEventListener('click', () => openDayModal(day));
+                timelineDays.appendChild(dayElement);
+            }
+        }
+
+        // Show daily message
+        function showDailyMessage() {
+            if (currentDay > 0 && currentDay <= dailyMessages.length) {
+                const message = dailyMessages[currentDay - 1];
+                dailyMessage.innerHTML = `<h3>Day ${currentDay}</h3><p>${message}</p>`;
+                motivationMessage.textContent = message;
+            }
+        }
+
+        // Submit today's status
+        function submitDay() {
+            const status = todayStatus.value;
+            const notes = todayNotes.value;
+            const pmoTimes = status === 'fail' ? parseInt(pmoCount.value) || 1 : 0;
+            
+            if (currentDay < 1 || currentDay > 90) {
+                alert("Invalid day number");
+                return;
+            }
+            
+            const dayData = {
+                day: currentDay,
+                status: status,
+                notes: notes,
+                pmoCount: pmoTimes,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            };
+            
+            // Update Firebase
+            const updates = {};
+            updates[`days/${currentDay}`] = dayData;
+            
+            // Update stats
+            let cleanDays = userData.stats?.cleanDays || 0;
+            let totalDays = userData.stats?.totalDays || 0;
+            let longestStreak = userData.stats?.longestStreak || 0;
+            
+            if (status === 'clean') {
+                cleanDays++;
+            }
+            totalDays++;
+            
+            // Calculate current streak
+            let currentStreak = 0;
+            for (let day = currentDay - 1; day >= 1; day--) {
+                const dayData = userData.days[day];
+                if (!dayData || dayData.status === 'fail') break;
+                if (dayData.status === 'clean' || dayData.status === 'risk') {
+                    currentStreak++;
+                }
+            }
+            
+            if (status === 'clean' || status === 'risk') {
+                currentStreak++;
+                if (currentStreak > longestStreak) {
+                    longestStreak = currentStreak;
+                }
+            }
+            
+            updates['stats/cleanDays'] = cleanDays;
+            updates['stats/totalDays'] = totalDays;
+            updates['stats/longestStreak'] = longestStreak;
+            
+            database.ref('users/' + currentUser.uid).update(updates)
+                .then(() => {
+                    alert("Day submitted successfully!");
+                    todayNotes.value = '';
+                })
+                .catch((error) => {
+                    console.error("Error submitting day:", error);
+                    alert("Error submitting day. Please try again.");
+                });
+        }
+
+        // Open day modal
+        function openDayModal(day) {
+            const dayData = userData.days && userData.days[day];
+            
+            modalDayNumber.textContent = day;
+            
+            if (dayData) {
+                let statusText = '';
+                if (dayData.status === 'clean') {
+                    statusText = '<span class="badge badge-success">Clean</span>';
+                } else if (dayData.status === 'risk') {
+                    statusText = '<span class="badge badge-warning">At Risk</span>';
+                } else if (dayData.status === 'fail') {
+                    statusText = `<span class="badge badge-danger">Failed (${dayData.pmoCount}x)</span>`;
+                }
+                
+                modalDayContent.innerHTML = `
+                    <p><strong>Status:</strong> ${statusText}</p>
+                    ${dayData.notes ? `<p><strong>Notes:</strong> ${dayData.notes}</p>` : '<p>No notes for this day.</p>'}
+                    <p><small>Submitted on: ${new Date(dayData.timestamp).toLocaleString()}</small></p>
+                `;
+                
+                editDayStatus.value = dayData.status;
+                editDayNotes.value = dayData.notes || '';
+                
+                if (dayData.status === 'fail') {
+                    editPmoCountContainer.style.display = 'block';
+                    editPmoCount.value = dayData.pmoCount || 1;
+                } else {
+                    editPmoCountContainer.style.display = 'none';
+                }
+                
+                // Show delete button only for past days
+                deleteDayBtn.style.display = day <= currentDay ? 'inline-block' : 'none';
+            } else {
+                modalDayContent.innerHTML = `
+                    <p>No data recorded for this day.</p>
+                    ${day < currentDay ? '<p class="text-warning">This day was missed in your tracking.</p>' : ''}
+                `;
+                
+                editDayStatus.value = 'clean';
+                editDayNotes.value = '';
+                editPmoCountContainer.style.display = 'none';
+                
+                // Hide delete button for days with no data
+                deleteDayBtn.style.display = 'none';
+            }
+            
+            // Set up event listener for status change
+            editDayStatus.addEventListener('change', function() {
+                if (this.value === 'fail') {
+                    editPmoCountContainer.style.display = 'block';
+                } else {
+                    editPmoCountContainer.style.display = 'none';
+                }
+            });
+            
+            // Store the current day being edited
+            saveDayBtn.dataset.day = day;
+            deleteDayBtn.dataset.day = day;
+            
+            dayModal.style.display = 'flex';
+        }
+
+        // Save day changes
+        function saveDay() {
+            const day = parseInt(saveDayBtn.dataset.day);
+            const status = editDayStatus.value;
+            const notes = editDayNotes.value;
+            const pmoTimes = status === 'fail' ? parseInt(editPmoCount.value) || 1 : 0;
+            
+            const dayData = {
+                day: day,
+                status: status,
+                notes: notes,
+                pmoCount: pmoTimes,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            };
+            
+            database.ref('users/' + currentUser.uid + '/days/' + day).set(dayData)
+                .then(() => {
+                    alert("Day updated successfully!");
+                    dayModal.style.display = 'none';
+                })
+                .catch((error) => {
+                    console.error("Error updating day:", error);
+                    alert("Error updating day. Please try again.");
+                });
+        }
+
+        // Delete day entry
+        function deleteDay() {
+            const day = parseInt(deleteDayBtn.dataset.day);
+            
+            if (confirm("Are you sure you want to delete this day's data?")) {
+                database.ref('users/' + currentUser.uid + '/days/' + day).remove()
+                    .then(() => {
+                        alert("Day data deleted successfully!");
+                        dayModal.style.display = 'none';
+                    })
+                    .catch((error) => {
+                        console.error("Error deleting day:", error);
+                        alert("Error deleting day. Please try again.");
+                    });
+            }
+        }
+
+        // Update statistics
+        function updateStatistics() {
+            if (!userData || !userData.stats) return;
+            
+            const stats = userData.stats;
+            
+            // Calculate current streak
+            let currentStreak = 0;
+            for (let day = currentDay - 1; day >= 1; day--) {
+                const dayData = userData.days && userData.days[day];
+                if (!dayData || dayData.status === 'fail') break;
+                if (dayData.status === 'clean' || dayData.status === 'risk') {
+                    currentStreak++;
+                }
+            }
+            
+            statStreak.textContent = currentStreak;
+            statLongestStreak.textContent = stats.longestStreak || 0;
+            statCleanDays.textContent = stats.cleanDays || 0;
+            
+            // Calculate success rate (last 30 days)
+            let cleanCount = 0;
+            let totalCount = 0;
+            const startDay = Math.max(1, currentDay - 30);
+            
+            for (let day = startDay; day < currentDay; day++) {
+                const dayData = userData.days && userData.days[day];
+                if (dayData) {
+                    totalCount++;
+                    if (dayData.status === 'clean') {
+                        cleanCount++;
+                    }
+                }
+            }
+            
+            const successRate = totalCount > 0 ? Math.round((cleanCount / totalCount) * 100) : 0;
+            statSuccessRate.textContent = `${successRate}%`;
+            
+            // Update trigger analysis
+            updateTriggerAnalysis();
+        }
+
+        // Update trigger analysis
+        function updateTriggerAnalysis() {
+            if (!userData || !userData.days) {
+                triggerList.innerHTML = '<li>Not enough data yet</li>';
+                return;
+            }
+            
+            // Simple analysis - in a real app, you'd analyze notes for common themes
+            const triggers = [
+                { name: "Boredom", count: 0 },
+                { name: "Stress", count: 0 },
+                { name: "Loneliness", count: 0 },
+                { name: "Late Night", count: 0 },
+                { name: "Seeing Triggers", count: 0 }
+            ];
+            
+            // Count trigger mentions in notes
+            for (const day in userData.days) {
+                const dayData = userData.days[day];
+                if (dayData.notes) {
+                    const notes = dayData.notes.toLowerCase();
+                    
+                    if (notes.includes('bored') || notes.includes('nothing to do')) {
+                        triggers[0].count++;
+                    }
+                    if (notes.includes('stress') || notes.includes('anxious') || notes.includes('overwhelm')) {
+                        triggers[1].count++;
+                    }
+                    if (notes.includes('lonely') || notes.includes('alone') || notes.includes('isolated')) {
+                        triggers[2].count++;
+                    }
+                    if (notes.includes('night') || notes.includes('late') || notes.includes('bed')) {
+                        triggers[3].count++;
+                    }
+                    if (notes.includes('saw') || notes.includes('trigger') || notes.includes('image') || notes.includes('video')) {
+                        triggers[4].count++;
+                    }
+                }
+            }
+            
+            // Sort by most common
+            triggers.sort((a, b) => b.count - a.count);
+            
+            // Update UI
+            triggerList.innerHTML = '';
+            triggers.forEach(trigger => {
+                if (trigger.count > 0) {
+                    const li = document.createElement('li');
+                    li.textContent = `${trigger.name} (${trigger.count} times)`;
+                    triggerList.appendChild(li);
+                }
+            });
+            
+            if (triggerList.children.length === 0) {
+                triggerList.innerHTML = '<li>No trigger patterns detected yet. Add notes to your daily check-ins for better analysis.</li>';
+            }
+        }
+
+        // Show distraction ideas
+        function showDistractionIdeas() {
+            const randomIdeas = [];
+            const usedIndices = [];
+            
+            // Get 3 unique ideas
+            while (randomIdeas.length < 3 && randomIdeas.length < distractionIdeas.length) {
+                const randomIndex = Math.floor(Math.random() * distractionIdeas.length);
+                if (!usedIndices.includes(randomIndex)) {
+                    usedIndices.push(randomIndex);
+                    randomIdeas.push(distractionIdeas[randomIndex]);
+                }
+            }
+            
+            alert("Try one of these distraction ideas:\n\n" + randomIdeas.join("\n• "));
+        }
+
+        // Start reset journal
+        function startResetJournal() {
+            const journalPrompt = `After a slip, it's important to process what happened without judgment. Answer these questions:
+
+1. What time of day did it happen, and where were you?
+2. What were you feeling emotionally just before?
+3. What physical sensations or urges did you notice?
+4. What thoughts were going through your mind?
+5. What could you do differently next time in a similar situation?
+
+Take a few minutes to write your responses. This reflection will help you learn and grow.`;
+            
+            const notes = prompt(journalPrompt, "");
+            if (notes !== null) {
+                // Save these notes to today's entry
+                const status = 'fail'; // Mark as fail since this is post-relapse
+                
+                const dayData = {
+                    day: currentDay,
+                    status: status,
+                    notes: notes,
+                    pmoCount: 1,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                };
+                
+                database.ref('users/' + currentUser.uid + '/days/' + currentDay).set(dayData)
+                    .then(() => {
+                        alert("Journal saved. Remember, recovery is about progress, not perfection. Recommit now!");
+                    })
+                    .catch((error) => {
+                        console.error("Error saving journal:", error);
+                        alert("Error saving journal. Please try again.");
+                    });
+            }
+        }
+
+        // Generate accountability message
+        function generateAccountabilityMessage() {
+            const messages = [
+                "Hey, I'm checking in because I'm committed to my recovery. I could use some encouragement right now.",
+                "I'm working on staying PMO-free today. Any words of wisdom or support you can share?",
+                "Accountability check: I'm on day [DAY] of my recovery. Your support means a lot to me!",
+                "I'm reaching out because I value your support in my recovery journey. How are you doing today?",
+                "Just wanted to let you know I'm staying strong in my recovery. Thanks for being there for me!"
+            ];
+            
+            const randomMessage = messages[Math.floor(Math.random() * messages.length)]
+                .replace('[DAY]', currentDay);
+            
+            const accountabilityDiv = document.getElementById('accountability-message');
+            accountabilityDiv.innerHTML = `<p>Copy this message to send to your accountability partner:</p>
+                <textarea class="form-control" rows="3" style="margin-bottom: 10px;">${randomMessage}</textarea>
+                <button onclick="copyAccountabilityMessage()" class="btn btn-primary">Copy Message</button>`;
+            accountabilityDiv.style.display = 'block';
+        }
+
+        // Copy accountability message to clipboard
+        function copyAccountabilityMessage() {
+            const textarea = document.querySelector('#accountability-message textarea');
+            textarea.select();
+            document.execCommand('copy');
+            alert("Message copied to clipboard!");
+        }
+
+        // Expose copy function to global scope
+        window.copyAccountabilityMessage = copyAccountabilityMessage;
+
+        // Initialize the app when DOM is loaded
+        document.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
